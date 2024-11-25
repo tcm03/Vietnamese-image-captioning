@@ -201,15 +201,9 @@ class CiderScorer(object):
         for i, (test, refs) in enumerate(zip(self.ctest, self.crefs)):
             # compute cider for each sentence
             cider = 0.
-            if i < 3:
-                print(i)
-                print(f'CANDIDATE: {test}')
-                print(f'REFS: {refs}')
             for n in range(self.n):
-                cider += 1./self.n * self.compute_cider_n(n+1, test, refs)
+                cider += 1./self.n * self.compute_cider_n(n+1, test[0], refs)
             score += cider
-        print(f'Sum CIDEr score: {score}')
-        print(f'Number of test samples: {len(self.ctest)}')
         score = score / len(self.ctest)
         return score
 

@@ -6,9 +6,13 @@
 # Creation Date: Sun Feb  8 14:16:54 2015
 #
 # Authors: Ramakrishna Vedantam <vrama91@vt.edu> and Tsung-Yi Lin <tl483@cornell.edu>
+#
+# Modified Date: Sun Nov 24, 2024
+#
+# Modifier: Minh Canh Tu <tcm03>
 
-from metrics.cider.cider_scorer import CiderScorer
-import pdb
+# from metrics.cider.cider_scorer import CiderScorer
+from cider_scorer import CiderScorer
 
 class Cider:
     """
@@ -46,9 +50,9 @@ class Cider:
 
             cider_scorer += (hypo[0], ref)
 
-        (score, scores) = cider_scorer.compute_score()
+        score = cider_scorer.compute_score()
 
-        return score, scores
+        return score
 
     def method(self):
         return "CIDEr"
