@@ -18,6 +18,7 @@ cook_test(test, refs, n=4): Transform a test sentence as a string (together with
 
 import copy
 from collections import defaultdict
+import math
 
 def precook(s, n=4, out=False):
     """Takes a string as input and returns an object that can be given to
