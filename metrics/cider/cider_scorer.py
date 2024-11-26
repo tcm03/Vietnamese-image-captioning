@@ -1,16 +1,48 @@
 #!/usr/bin/env python
 # Tsung-Yi Lin <tl483@cornell.edu>
 # Ramakrishna Vedantam <vrama91@vt.edu>
-#
-# Modified Date: Sun Nov 24, 2024
-#
-# Modifier: Minh Canh Tu <tcm03>
 
 import copy
 from collections import defaultdict
 import numpy as np
+import pdb
+import math
 
+def precook(s, n=4, out=False):
+    """
+    Takes a string as input and returns an object that can be given to
+    either cook_refs or cook_test. This is optional: cook_refs and cook_test
+    can take string arguments as well.
+    :param s: string : sentence to be converted into ngrams
+    :param n: int    : number of ngrams for which representation is calculated
+    :return: term frequency vector for occuring ngrams
+    """
+    words = s.split()
+    counts = defaultdict(int)
+    for k in range(1,n+1):
+        for i in range(len(words)-k+1):
+            ngram = tuple(words[i:i+k])
+            counts[ngram] += 1
+    return counts
 
+def cook_refs(refs, n=4): ## lhuang: oracle will call with "average"
+    '''Takes a list of reference sentences for a single segment
+    and returns an object that encapsulates everything that BLEU
+    needs to know about them.
+    :param refs: list of string : reference sentences for some image
+    :param n: int : number of ngrams for which (ngram) representation is calculated
+    :return: result (list of dict)
+    '''
+    return [precook(ref, n) for ref in refs]
+
+def cook_test(test, n=4):
+    '''Takes a test sentence and returns an object that
+    encapsulates everything that BLEU needs to know about it.
+    :param test: list of string : hypothesis sentence for some image
+    :param n: int : number of ngrams for which (ngram) representation is calculated
+    :return: result (dict)
+    '''
+    return precook(test, n, True)
 
 class CiderScorer(object):
     """CIDEr scorer.
@@ -25,64 +57,23 @@ class CiderScorer(object):
 
     def __init__(self, test=None, refs=None, n=4, sigma=6.0):
         ''' singular instance '''
-
-        # self.ngrams = [set() for _ in range(n)] # set of ngrams of length n (0-indexed)
-
         self.n = n
         self.sigma = sigma
         self.crefs = []
         self.ctest = []
         self.document_frequency = defaultdict(float)
-        # self.cook_append(test, refs)
-        # self.ref_len = None
+        self.cook_append(test, refs)
+        self.ref_len = None
 
-    # def precook(self, s, n=4, build_ngrams=False):
-    #     """
-    #     Takes a string as input and returns an object that can be given to
-    #     either cook_refs or cook_test. This is optional: cook_refs and cook_test
-    #     can take string arguments as well.
-    #     :param s: string : sentence to be converted into ngrams
-    #     :param n: int    : number of ngrams for which representation is calculated
-    #     :return: term frequency vector for occuring ngrams
-    #     """
-    #     words = s.split()
-    #     counts = [defaultdict(int) for _ in range(n)]
-    #     for k in range(n):
-    #         for i in range(len(words)-k+1):
-    #             ngram = tuple(words[i:i+k])
-    #             if build_ngrams:
-    #                 self.ngrams[k-1].add(ngram)
-    #             counts[k][ngram] += 1
-    #     return counts
+    def cook_append(self, test, refs):
+        '''called by constructor and __iadd__ to avoid creating new instances.'''
 
-    # def cook_refs(self, refs, n=4): ## lhuang: oracle will call with "average"
-    #     '''Takes a list of reference sentences for a single segment
-    #     and returns an object that encapsulates everything that BLEU
-    #     needs to know about them.
-    #     :param refs: list of string : reference sentences for some image
-    #     :param n: int : number of ngrams for which (ngram) representation is calculated
-    #     :return: result (list of dict)
-    #     '''
-    #     return [self.precook(ref, n, True) for ref in refs]
-
-    # def cook_test(self, test, n=4):
-    #     '''Takes a test sentence and returns an object that
-    #     encapsulates everything that BLEU needs to know about it.
-    #     :param test: list of string : hypothesis sentence for some image
-    #     :param n: int : number of ngrams for which (ngram) representation is calculated
-    #     :return: result (dict)
-    #     '''
-    #     return self.precook(test, n)
-
-    # def cook_append(self, test, refs):
-    #     '''called by constructor and __iadd__ to avoid creating new instances.'''
-
-    #     if refs is not None:
-    #         self.crefs.append(self.cook_refs(refs))
-    #         if test is not None:
-    #             self.ctest.append(self.cook_test(test)) ## N.B.: -1
-    #         else:
-    #             self.ctest.append(None) # lens of crefs and ctest have to match
+        if refs is not None:
+            self.crefs.append(cook_refs(refs))
+            if test is not None:
+                self.ctest.append(cook_test(test)) ## N.B.: -1
+            else:
+                self.ctest.append(None) # lens of crefs and ctest have to match
 
     def size(self):
         assert len(self.crefs) == len(self.ctest), "refs/test mismatch! %d<>%d" % (len(self.crefs), len(self.ctest))
@@ -93,9 +84,7 @@ class CiderScorer(object):
 
         if type(other) is tuple:
             ## avoid creating new CiderScorer instances
-            # self.cook_append(other[0], other[1])
-            self.ctest.append(other[0])
-            self.crefs.append(other[1])
+            self.cook_append(other[0], other[1])
         else:
             self.ctest.extend(other.ctest)
             self.crefs.extend(other.crefs)
@@ -109,117 +98,95 @@ class CiderScorer(object):
         :return: None
         '''
         for refs in self.crefs:
-            ngrams = set()
-            for ref in refs:
-                ref_words = ref.split()
-                for k in range(1, self.n+1):
-                    for i in range(len(ref_words)-k+1):
-                        ngram = tuple(ref_words[i:i+k])
-                        ngrams.add(ngram)
-            for ngram in ngrams:
+            # refs, k ref captions of one image
+            for ngram in set([ngram for ref in refs for (ngram,count) in ref.items()]):
                 self.document_frequency[ngram] += 1
+            # maxcounts[ngram] = max(maxcounts.get(ngram,0), count)
 
-    def tfidf_score(self, ngram, sent):
+    def compute_cider(self):
+        def counts2vec(cnts):
             """
-            Description: create vector of tfidf weights
-            Args:
-                ngram: n-gram as a tuple of n words from sent
-                sent: candidate sentence
+            Function maps counts of ngram to vector of tfidf weights.
+            The function returns vec, an array of dictionary that store mapping of n-gram and tf-idf weights.
+            The n-th entry of array denotes length of n-grams.
+            :param cnts:
+            :return: vec (array of dict), norm (array of float), length (int)
             """
-            cand_words = sent.split()
-            # count number of times the ngram occurs in candidate
-            h = 0
-            for i in range(len(cand_words)-len(ngram)+1):
-                if tuple(cand_words[i:i+len(ngram)]) == ngram:
-                    h += 1
-            hs = len(cand_words) - len(ngram) + 1
-            tf = float(h)/hs
+            vec = [defaultdict(float) for _ in range(self.n)]
+            length = 0
+            norm = [0.0 for _ in range(self.n)]
+            for (ngram,term_freq) in cnts.items():
+                # give word count 1 if it doesn't appear in reference corpus
+                df = np.log(max(1.0, self.document_frequency[ngram]))
+                # ngram index
+                n = len(ngram)-1
+                # tf (term_freq) * idf (precomputed idf) for n-grams
+                vec[n][ngram] = float(term_freq)*(self.ref_len - df)
+                # compute norm for the vector.  the norm will be used for computing similarity
+                norm[n] += pow(vec[n][ngram], 2)
 
-            N = len(self.crefs) # number of reference sentences (or documents)
-            df = self.document_frequency[ngram]
-            idf = float(np.log(N / (df+1.0))) # smoothing factor = 1
-            return tf * idf
-    
-    def cosine_sim(self, n, cand_sent, ref_sent):
-        """
-        Description: Compute cosine similarity
-        Args:
-            n: length of n-gram
-            cand_sent: candidate sentence
-            ref_sent: reference sentence
-        """
-        cand_ngrams = set()
-        cand_words = cand_sent.split()
-        for i in range(len(cand_words)-n+1):
-            cand_ngrams.add(tuple(cand_words[i:i+n]))
-        ref_ngrams = set()
-        ref_words = ref_sent.split()
-        for i in range(len(ref_words)-n+1):
-            ref_ngrams.add(tuple(ref_words[i:i+n]))
-        common_ngrams = cand_ngrams.intersection(ref_ngrams)
+                if n == 1:
+                    length += term_freq
+            norm = [np.sqrt(n) for n in norm]
+            return vec, norm, length
 
-        cand_norm = 0.
-        for ngram in cand_ngrams:
-            tfidf = self.tfidf_score(ngram, cand_sent)
-            cand_norm += tfidf**2
-        cand_norm = float(np.sqrt(cand_norm))
-        ref_norm = 0.
-        for ngram in ref_ngrams:
-            tfidf = self.tfidf_score(ngram, ref_sent)
-            ref_norm += tfidf**2
-        ref_norm = float(np.sqrt(ref_norm))
-        dot_product = 0.
-        for ngram in common_ngrams:
-            tfidf_cand = self.tfidf_score(ngram, cand_sent)
-            tfidf_ref = self.tfidf_score(ngram, ref_sent)
-            dot_product += tfidf_ref * min(tfidf_cand, tfidf_ref)
+        def sim(vec_hyp, vec_ref, norm_hyp, norm_ref, length_hyp, length_ref):
+            '''
+            Compute the cosine similarity of two vectors.
+            :param vec_hyp: array of dictionary for vector corresponding to hypothesis
+            :param vec_ref: array of dictionary for vector corresponding to reference
+            :param norm_hyp: array of float for vector corresponding to hypothesis
+            :param norm_ref: array of float for vector corresponding to reference
+            :param length_hyp: int containing length of hypothesis
+            :param length_ref: int containing length of reference
+            :return: array of score for each n-grams cosine similarity
+            '''
+            delta = float(length_hyp - length_ref)
+            # measure consine similarity
+            val = np.array([0.0 for _ in range(self.n)])
+            for n in range(self.n):
+                # ngram
+                for (ngram,count) in vec_hyp[n].items():
+                    # vrama91 : added clipping
+                    val[n] += min(vec_hyp[n][ngram], vec_ref[n][ngram]) * vec_ref[n][ngram]
 
-        l_cand = len(cand_words)
-        len_ref = len(ref_words)
-        delta = float(l_cand - len_ref)
-        exp = np.e**(-(delta**2)/(2*self.sigma**2))
-        return dot_product / (cand_norm * ref_norm) * exp
+                if (norm_hyp[n] != 0) and (norm_ref[n] != 0):
+                    val[n] /= (norm_hyp[n]*norm_ref[n])
 
-    def compute_cider_n(self, n, cand_sent, ref_cents):
-        m = len(ref_cents)
-        cider = 0.
-        for ref_cent in ref_cents:
-            cider += self.cosine_sim(n, cand_sent, ref_cent)
-        cider = 10./m * cider
-        return cider
-    
-    def compute_score(self):
-        """
-        Compute CIDEr score
-        """
+                assert(not math.isnan(val[n]))
+                # vrama91: added a length based gaussian penalty
+                val[n] *= np.e**(-(delta**2)/(2*self.sigma**2))
+            return val
+
+        # compute log reference length
+        self.ref_len = np.log(float(len(self.crefs)))
+
+        scores = []
+        for test, refs in zip(self.ctest, self.crefs):
+            # compute vector for test captions
+            vec, norm, length = counts2vec(test)
+            # compute vector for ref captions
+            score = np.array([0.0 for _ in range(self.n)])
+            for ref in refs:
+                vec_ref, norm_ref, length_ref = counts2vec(ref)
+                score += sim(vec, vec_ref, norm, norm_ref, length, length_ref)
+            # change by vrama91 - mean of ngram scores, instead of sum
+            score_avg = np.mean(score)
+            # divide by number of references
+            score_avg /= len(refs)
+            # multiply score by 10
+            score_avg *= 10.0
+            # append score of an image to the score list
+            scores.append(score_avg)
+        return scores
+
+    def compute_score(self, option=None, verbose=0):
         # compute idf
         self.compute_doc_freq()
         # assert to check document frequency
         assert(len(self.ctest) >= max(self.document_frequency.values()))
         # compute cider score
-        score = 0.
-        for i, (test, refs) in enumerate(zip(self.ctest, self.crefs)):
-            # compute cider for each sentence
-            cider = 0.
-            if i < 3:
-                print(i)
-                print(f'CANDIDATE: {test}')
-                print(f'REFS: {refs}')
-            for n in range(self.n):
-                cider += 1./self.n * self.compute_cider_n(n+1, test, refs)
-            score += cider
-        print(f'Sum CIDEr score: {score}')
-        print(f'Number of test samples: {len(self.ctest)}')
-        score = score / len(self.ctest)
-        return score
-
-    # def compute_score(self, option=None, verbose=0):
-    #     # compute idf
-    #     self.compute_doc_freq()
-    #     # assert to check document frequency
-    #     assert(len(self.ctest) >= max(self.document_frequency.values()))
-    #     # compute cider score
-    #     score = self.compute_cider()
-    #     # debug
-    #     # print score
-    #     return np.mean(np.array(score)), np.array(score)
+        score = self.compute_cider()
+        # debug
+        # print score
+        return np.mean(np.array(score)), np.array(score)
