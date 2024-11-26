@@ -35,7 +35,7 @@ class Bleu:
 
             bleu_scorer += (hypo[0], ref)
 
-        score, scores = bleu_scorer.compute_score(option='closest', verbose=1)
+        score, scores = bleu_scorer.compute_score(option='closest', verbose=0)
 
         # return (bleu, bleu_info)
         return score, scores
