@@ -12,7 +12,7 @@
 # Modifier: Minh Canh Tu <tcm03>
 
 # from metrics.cider.cider_scorer import CiderScorer
-from cider_scorer import CiderScorer
+from metrics.cider.cider_scorer import CiderScorer
 
 class Cider:
     """

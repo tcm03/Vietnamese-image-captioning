@@ -10,8 +10,6 @@ import copy
 from collections import defaultdict
 import numpy as np
 
-
-
 class CiderScorer(object):
     """CIDEr scorer.
     """
@@ -26,63 +24,12 @@ class CiderScorer(object):
     def __init__(self, test=None, refs=None, n=4, sigma=6.0):
         ''' singular instance '''
 
-        # self.ngrams = [set() for _ in range(n)] # set of ngrams of length n (0-indexed)
-
         self.n = n
         self.sigma = sigma
         self.crefs = []
         self.ctest = []
         self.document_frequency = defaultdict(float)
-        # self.cook_append(test, refs)
-        # self.ref_len = None
 
-    # def precook(self, s, n=4, build_ngrams=False):
-    #     """
-    #     Takes a string as input and returns an object that can be given to
-    #     either cook_refs or cook_test. This is optional: cook_refs and cook_test
-    #     can take string arguments as well.
-    #     :param s: string : sentence to be converted into ngrams
-    #     :param n: int    : number of ngrams for which representation is calculated
-    #     :return: term frequency vector for occuring ngrams
-    #     """
-    #     words = s.split()
-    #     counts = [defaultdict(int) for _ in range(n)]
-    #     for k in range(n):
-    #         for i in range(len(words)-k+1):
-    #             ngram = tuple(words[i:i+k])
-    #             if build_ngrams:
-    #                 self.ngrams[k-1].add(ngram)
-    #             counts[k][ngram] += 1
-    #     return counts
-
-    # def cook_refs(self, refs, n=4): ## lhuang: oracle will call with "average"
-    #     '''Takes a list of reference sentences for a single segment
-    #     and returns an object that encapsulates everything that BLEU
-    #     needs to know about them.
-    #     :param refs: list of string : reference sentences for some image
-    #     :param n: int : number of ngrams for which (ngram) representation is calculated
-    #     :return: result (list of dict)
-    #     '''
-    #     return [self.precook(ref, n, True) for ref in refs]
-
-    # def cook_test(self, test, n=4):
-    #     '''Takes a test sentence and returns an object that
-    #     encapsulates everything that BLEU needs to know about it.
-    #     :param test: list of string : hypothesis sentence for some image
-    #     :param n: int : number of ngrams for which (ngram) representation is calculated
-    #     :return: result (dict)
-    #     '''
-    #     return self.precook(test, n)
-
-    # def cook_append(self, test, refs):
-    #     '''called by constructor and __iadd__ to avoid creating new instances.'''
-
-    #     if refs is not None:
-    #         self.crefs.append(self.cook_refs(refs))
-    #         if test is not None:
-    #             self.ctest.append(self.cook_test(test)) ## N.B.: -1
-    #         else:
-    #             self.ctest.append(None) # lens of crefs and ctest have to match
 
     def size(self):
         assert len(self.crefs) == len(self.ctest), "refs/test mismatch! %d<>%d" % (len(self.crefs), len(self.ctest))
@@ -201,19 +148,14 @@ class CiderScorer(object):
         for i, (test, refs) in enumerate(zip(self.ctest, self.crefs)):
             # compute cider for each sentence
             cider = 0.
+            # if i < 3:
+            #     print(i)
+            #     print(f'CANDIDATE: {test}')
+            #     print(f'REFS: {refs}')
             for n in range(self.n):
-                cider += 1./self.n * self.compute_cider_n(n+1, test[0], refs)
+                cider += 1./self.n * self.compute_cider_n(n+1, test, refs)
             score += cider
+        print(f'Sum CIDEr score: {score}')
+        print(f'Number of test samples: {len(self.ctest)}')
         score = score / len(self.ctest)
         return score
-
-    # def compute_score(self, option=None, verbose=0):
-    #     # compute idf
-    #     self.compute_doc_freq()
-    #     # assert to check document frequency
-    #     assert(len(self.ctest) >= max(self.document_frequency.values()))
-    #     # compute cider score
-    #     score = self.compute_cider()
-    #     # debug
-    #     # print score
-    #     return np.mean(np.array(score)), np.array(score)
