@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# 
+#
 # File Name : bleu.py
 #
 # Description : Wrapper for BLEU scorer.
@@ -9,7 +9,6 @@
 # Authors : Hao Fang <hfang@uw.edu> and Tsung-Yi Lin <tl483@cornell.edu>
 
 from metrics.bleu.bleu_scorer import BleuScorer
-
 
 class Bleu:
     def __init__(self, n=4):
@@ -36,9 +35,7 @@ class Bleu:
 
             bleu_scorer += (hypo[0], ref)
 
-        #score, scores = bleu_scorer.compute_score(option='shortest')
-        score, scores = bleu_scorer.compute_score(option='closest', verbose=1)
-        #score, scores = bleu_scorer.compute_score(option='average', verbose=1)
+        score, scores = bleu_scorer.compute_score(option='closest', verbose=0)
 
         # return (bleu, bleu_info)
         return score, scores

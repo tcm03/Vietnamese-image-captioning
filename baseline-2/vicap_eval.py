@@ -16,18 +16,14 @@ def load_dictionaries(file_path):
 ref_dict, cand_dict = load_dictionaries(file_path)
 
 
-bleu1 = Bleu(n=1)
-bleu1_score, _ = bleu1.compute_score(ref_dict, cand_dict)
-print(f'BLEU-1 score: {bleu1_score}')
-
-bleu4 = Bleu(n=4)
-bleu4_score, _ = bleu4.compute_score(ref_dict, cand_dict)
-print(f'BLEU-4 score: {bleu4_score}')
+bleu = Bleu(n=4)
+bleu_score, _ = bleu.compute_score(ref_dict, cand_dict)
+print(f'BLEU-4 score: {bleu_score}')
 
 rouge = Rouge()
 rouge_score, _ = rouge.compute_score(ref_dict, cand_dict)
 print(f'ROUGE score: {rouge_score}')
 
 cider = Cider()
-cider_score = cider.compute_score(ref_dict, cand_dict)
+cider_score, _ = cider.compute_score(ref_dict, cand_dict)
 print(f'CIDEr score: {cider_score}')

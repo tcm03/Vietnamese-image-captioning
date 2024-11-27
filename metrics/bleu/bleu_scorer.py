@@ -7,7 +7,7 @@
 # reserved. Do not redistribute without permission from the
 # author. Not for commercial use.
 
-# Modified by: 
+# Modified by:
 # Hao Fang <hfang@uw.edu>
 # Tsung-Yi Lin <tl483@cornell.edu>
 
@@ -17,8 +17,8 @@ cook_test(test, refs, n=4): Transform a test sentence as a string (together with
 '''
 
 import copy
-import sys, math, re
 from collections import defaultdict
+import math
 
 def precook(s, n=4, out=False):
     """Takes a string as input and returns an object that can be given to
@@ -52,12 +52,12 @@ def cook_refs(refs, eff=None, n=4): ## lhuang: oracle will call with "average"
         reflen = float(sum(reflen))/len(reflen)
 
     ## lhuang: N.B.: leave reflen computaiton to the very end!!
-    
+
     ## lhuang: N.B.: in case of "closest", keep a list of reflens!! (bad design)
 
     return (reflen, maxcounts)
 
-def cook_test(test, (reflen, refmaxcounts), eff=None, n=4):
+def cook_test(test, reflen, refmaxcounts, eff=None, n=4):
     '''Takes a test sentence and returns an object that
     encapsulates everything that BLEU needs to know about it.'''
 
@@ -66,7 +66,7 @@ def cook_test(test, (reflen, refmaxcounts), eff=None, n=4):
     result = {}
 
     # Calculate effective reference sentence length.
-    
+
     if eff == "closest":
         result["reflen"] = min((abs(l-testlen), l) for l in reflen)[1]
     else: ## i.e., "average" or "shortest" or None
@@ -108,11 +108,11 @@ class BleuScorer(object):
 
     def cook_append(self, test, refs):
         '''called by constructor and __iadd__ to avoid creating new instances.'''
-        
+
         if refs is not None:
             self.crefs.append(cook_refs(refs))
             if test is not None:
-                cooked_test = cook_test(test, self.crefs[-1])
+                cooked_test = cook_test(test, self.crefs[-1][0], self.crefs[-1][1])
                 self.ctest.append(cooked_test) ## N.B.: -1
             else:
                 self.ctest.append(None) # lens of crefs and ctest have to match
@@ -136,7 +136,7 @@ class BleuScorer(object):
 
     def testlen(self, option=None):
         self.compute_score(option=option)
-        return self._testlen        
+        return self._testlen
 
     def retest(self, new_test):
         if type(new_test) is str:
@@ -144,14 +144,14 @@ class BleuScorer(object):
         assert len(new_test) == len(self.crefs), new_test
         self.ctest = []
         for t, rs in zip(new_test, self.crefs):
-            self.ctest.append(cook_test(t, rs))
+            self.ctest.append(cook_test(t, rs[0], rs[1]))
         self._score = None
 
         return self
 
     def rescore(self, new_test):
         ''' replace test(s) with new test(s), and returns the new score.'''
-        
+
         return self.retest(new_test).compute_score()
 
     def size(self):
@@ -170,7 +170,7 @@ class BleuScorer(object):
             self.crefs.extend(other.crefs)
             self._score = None ## need to recompute
 
-        return self        
+        return self
 
     def compatible(self, other):
         return isinstance(other, BleuScorer) and self.n == other.n
@@ -179,7 +179,7 @@ class BleuScorer(object):
         return self._single_reflen(self.crefs[0][0], option)
 
     def _single_reflen(self, reflens, option=None, testlen=None):
-        
+
         if option == "shortest":
             reflen = min(reflens)
         elif option == "average":
@@ -194,7 +194,7 @@ class BleuScorer(object):
     def recompute_score(self, option=None, verbose=0):
         self._score = None
         return self.compute_score(option, verbose)
-        
+
     def compute_score(self, option=None, verbose=0):
         n = self.n
         small = 1e-9
@@ -212,7 +212,7 @@ class BleuScorer(object):
         totalcomps = {'testlen':0, 'reflen':0, 'guess':[0]*n, 'correct':[0]*n}
 
         # for each sentence
-        for comps in self.ctest:            
+        for comps in self.ctest:
             testlen = comps['testlen']
             self._testlen += testlen
 
@@ -222,7 +222,7 @@ class BleuScorer(object):
                 reflen = self.special_reflen
 
             self._reflen += reflen
-                
+
             for key in ['guess','correct']:
                 for k in range(n):
                     totalcomps[key][k] += comps[key][k]
@@ -231,7 +231,7 @@ class BleuScorer(object):
             bleu = 1.
             for k in range(n):
                 bleu *= (float(comps['correct'][k]) + tiny) \
-                        /(float(comps['guess'][k]) + small) 
+                        /(float(comps['guess'][k]) + small)
                 bleu_list[k].append(bleu ** (1./(k+1)))
             ratio = (testlen + tiny) / (reflen + small) ## N.B.: avoid zero division
             if ratio < 1:
@@ -239,7 +239,7 @@ class BleuScorer(object):
                     bleu_list[k][-1] *= math.exp(1 - 1/ratio)
 
             if verbose > 1:
-                print comps, reflen
+                print (comps, reflen)
 
         totalcomps['reflen'] = self._reflen
         totalcomps['testlen'] = self._testlen
@@ -256,8 +256,8 @@ class BleuScorer(object):
                 bleus[k] *= math.exp(1 - 1/ratio)
 
         if verbose > 0:
-            print totalcomps
-            print "ratio:", ratio
+            print (totalcomps)
+            print ("ratio:", ratio)
 
         self._score = bleus
         return self._score, bleu_list
